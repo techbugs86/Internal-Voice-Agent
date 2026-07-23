@@ -43,6 +43,12 @@ async function call<T>(
 export type RetellLlm = { llm_id: string };
 export type RetellAgent = { agent_id: string; agent_name?: string };
 export type RetellWebCall = { access_token: string; call_id: string };
+export type RetellAgentDetail = {
+  agent_id: string;
+  agent_name?: string;
+  voice_id?: string;
+  language?: string;
+};
 
 /**
  * Step 1 of agent creation: create the "brain".
@@ -86,6 +92,17 @@ export function createRetellAgent(params: {
  * Mint a short-lived token that lets a browser join a call with this agent.
  * Only the token goes to the client — never the API key.
  */
+/**
+ * Retell already stores every agent we create, so it doubles as our source of
+ * truth when our own registry is unavailable (e.g. a serverless deploy with no
+ * database configured).
+ */
+export function getRetellAgent(agentId: string): Promise<RetellAgentDetail> {
+  return call<RetellAgentDetail>(`/get-agent/${encodeURIComponent(agentId)}`, {
+    method: "GET",
+  });
+}
+
 export function createWebCall(agentId: string): Promise<RetellWebCall> {
   return call<RetellWebCall>("/v2/create-web-call", {
     method: "POST",

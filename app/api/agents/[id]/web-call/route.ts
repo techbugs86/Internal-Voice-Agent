@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { getAgentView } from "@/lib/agents";
 import { createWebCall } from "@/lib/retell";
-import { store } from "@/lib/store";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,8 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const agent = await store.get(id);
+    // Resolves via our registry, or via Retell when no database is configured.
+    const agent = await getAgentView(id);
     if (!agent) {
       return NextResponse.json({ error: "Unknown agent." }, { status: 404 });
     }

@@ -92,14 +92,27 @@ export async function POST(req: Request) {
       language: spec.language,
     });
 
-    // 4. Remember it, so /a/<agentId> can render.
-    await store.save({
-      agentId: agent.agent_id,
-      llmId: llm.llm_id,
-      spec,
-      compiledPrompt,
-      createdAt: new Date().toISOString(),
-    });
+    // 4. Remember it, so /a/<agentId> can show the company name.
+    //
+    // Best-effort on purpose: the agent already exists in Retell by this point,
+    // and the share page falls back to Retell when the registry is missing. A
+    // read-only filesystem (the default on Vercel with no database configured)
+    // must not turn a successful creation into an error the user sees.
+    try {
+      await store.save({
+        agentId: agent.agent_id,
+        llmId: llm.llm_id,
+        spec,
+        compiledPrompt,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error(
+        "Agent created but could not be saved to the registry. " +
+          "Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to persist agent details.",
+        err,
+      );
+    }
 
     const result: CreateAgentResult = {
       agentId: agent.agent_id,

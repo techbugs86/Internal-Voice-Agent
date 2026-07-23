@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { store } from "@/lib/store";
+import { getAgentView } from "@/lib/agents";
 import CallClient from "./call-client";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +11,8 @@ export async function generateMetadata({
   params: Promise<{ agentId: string }>;
 }): Promise<Metadata> {
   const { agentId } = await params;
-  const agent = await store.get(agentId);
-  const name = agent?.spec.agentName ?? "your AI agent";
+  const agent = await getAgentView(agentId);
+  const name = agent?.agentName ?? "your AI agent";
   return {
     title: `Talk with ${name}`,
     description: `Start a live voice conversation with ${name}.`,
@@ -25,10 +25,8 @@ export default async function AgentPage({
   params: Promise<{ agentId: string }>;
 }) {
   const { agentId } = await params;
-  const agent = await store.get(agentId);
-  if (!agent) notFound();
-
-  const { spec } = agent;
+  const spec = await getAgentView(agentId);
+  if (!spec) notFound();
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-16">
@@ -52,7 +50,7 @@ export default async function AgentPage({
       </div>
 
       <div className="mt-10">
-        <CallClient agentId={agent.agentId} agentName={spec.agentName} />
+        <CallClient agentId={spec.agentId} agentName={spec.agentName} />
       </div>
 
       <p className="mt-10 text-center text-xs text-[#5c6472]">

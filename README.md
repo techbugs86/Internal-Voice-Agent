@@ -87,11 +87,19 @@ The generated URL must resolve to stored metadata, so agents go in a registry
 
 - **JSON file** at `data/agents.json` — the default, zero config, for local dev.
 - **Supabase/Postgres** — activates automatically when `SUPABASE_URL` and
-  `SUPABASE_SERVICE_ROLE_KEY` are set.
+  `SUPABASE_SERVICE_ROLE_KEY` are set. The `create table` statement is in a
+  comment in `lib/store.ts`.
 
-**Use Supabase in production.** Serverless filesystems are ephemeral and not
-shared between instances, so the file store will lose agents on Vercel. The
-`create table` statement is in a comment in `lib/store.ts`.
+**The registry is optional.** Retell permanently stores every agent we create,
+so `getAgentView()` in [lib/agents.ts](lib/agents.ts) falls back to
+`GET /get-agent/{id}` whenever the registry is empty or unwritable. Share links
+and web calls keep working on a bare Vercel deploy with no database at all —
+the only thing lost is the company name shown above the agent's name, and the
+saved copy of the intake form.
+
+Saving is best-effort for the same reason: on Vercel the filesystem is
+read-only, and a failed write must not turn a successful agent creation into an
+error. Configure Supabase when you want the intake form persisted.
 
 ## Layout
 
