@@ -1,8 +1,16 @@
 node_modules/
+dist/
 .next/
 out/
+build/
+
 .env
 .env.local
-data/agents.json
+.env.*.local
+
 *.tsbuildinfo
 next-env.d.ts
+.DS_Store
+
+# Leftover from the old JSON-file agent store, replaced by Postgres.
+data/
