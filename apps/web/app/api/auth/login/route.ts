@@ -28,6 +28,6 @@ export async function POST(req: Request) {
 
   const result = body as AuthResult;
   const res = NextResponse.json({ ok: true });
-  if (result.session) writeSession(res.cookies, result.session);
+  writeSession(res.cookies, result.session);
   return res;
 }

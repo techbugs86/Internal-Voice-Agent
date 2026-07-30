@@ -16,8 +16,11 @@ export default function LoginPage() {
       {/* AuthForm reads `?next=` via useSearchParams, which Next requires to
           sit inside a Suspense boundary. */}
       <Suspense fallback={null}>
-        <AuthForm mode="login" />
+        <AuthForm />
       </Suspense>
+      <p className="mt-6 text-center text-[13px] text-[var(--color-muted)]">
+        Accounts are created by the team. Need one? Ask an administrator.
+      </p>
     </>
   );
 }

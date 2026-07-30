@@ -1,20 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { credentialsSchema } from "@agent/shared";
 import Recaptcha, { type RecaptchaHandle } from "./recaptcha";
 
 /**
- * Sign-in and sign-up share one form — the fields, the captcha, and the error
- * handling are identical, and only the copy and the endpoint differ.
+ * Sign-in.
+ *
+ * There is no sign-up counterpart: accounts are created by hand, so this is the
+ * only way into the app.
  *
  * Validation comes from `credentialsSchema` in @agent/shared, the same object
  * the API validates against. The check here is only to save a round trip; the
  * API never trusts it.
  */
-export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
+export default function AuthForm() {
   const router = useRouter();
   const search = useSearchParams();
 
@@ -23,11 +24,8 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checkInbox, setCheckInbox] = useState(false);
 
   const captchaRef = useRef<RecaptchaHandle | null>(null);
-
-  const isSignup = mode === "signup";
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -45,7 +43,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
     setBusy(true);
     try {
-      const res = await fetch(`/api/auth/${mode}`, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...parsed.data, captchaToken }),
@@ -53,13 +51,8 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Something went wrong.");
 
-      if (isSignup && body.emailConfirmationRequired) {
-        setCheckInbox(true);
-        return;
-      }
-
       // `refresh` re-runs the server components with the new cookie, so the
-      // builder page renders signed-in rather than flashing the old state.
+      // dashboard renders signed-in rather than flashing the old state.
       const next = safeNext(search.get("next"));
       router.replace(next);
       router.refresh();
@@ -71,25 +64,6 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
       captchaRef.current?.reset();
       setCaptchaToken(null);
     }
-  }
-
-  if (checkInbox) {
-    return (
-      <div className="rounded-xl border border-[var(--color-edge)] bg-[var(--color-panel)] p-6 text-center">
-        <p className="text-lg font-medium">Check your inbox</p>
-        <p className="mt-2 text-[15px] leading-relaxed text-[var(--color-muted)]">
-          We sent a confirmation link to{" "}
-          <span className="text-[var(--color-accent)]">{email}</span>. Click it,
-          then come back and sign in.
-        </p>
-        <Link
-          href="/login"
-          className="mt-5 inline-block text-sm text-[var(--color-accent)] hover:underline"
-        >
-          Go to sign in
-        </Link>
-      </div>
-    );
   }
 
   return (
@@ -115,13 +89,10 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <label className="block">
           <span className="mb-1.5 block text-[13px] text-[var(--color-muted)]">
             Password
-            {isSignup && (
-              <span className="ml-1.5 text-[#5c6472]">— at least 8 characters</span>
-            )}
           </span>
           <input
             type="password"
-            autoComplete={isSignup ? "new-password" : "current-password"}
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
@@ -136,13 +107,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
           disabled={busy}
           className="rounded-lg bg-[var(--color-accent)] px-5 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy
-            ? isSignup
-              ? "Creating your account…"
-              : "Signing you in…"
-            : isSignup
-              ? "Create account"
-              : "Sign in"}
+          {busy ? "Signing you in…" : "Sign in"}
         </button>
 
         {error && (
@@ -150,16 +115,6 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
             {error}
           </p>
         )}
-
-        <p className="text-center text-[13px] text-[var(--color-muted)]">
-          {isSignup ? "Already have an account? " : "No account yet? "}
-          <Link
-            href={isSignup ? "/login" : "/signup"}
-            className="text-[var(--color-accent)] hover:underline"
-          >
-            {isSignup ? "Sign in" : "Create one"}
-          </Link>
-        </p>
       </div>
     </form>
   );

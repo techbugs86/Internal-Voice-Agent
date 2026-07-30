@@ -49,7 +49,7 @@ repository never knows what Retell is.
 ```
 apps/api/src/
   modules/
-    auth/       controller → service              sign-up, sign-in, refresh
+    auth/       controller → service              sign-in, refresh, sign-out
     agents/     controller → service → repository create, list, share, call
   infra/
     supabase/   Supabase Auth over REST   ← the only file that knows about Supabase
@@ -77,7 +77,7 @@ browser ──▶ Next.js /api/*  ──▶  NestJS API  ──▶  Supabase / R
 
 | Route | Auth |
 |---|---|
-| `/login`, `/signup` | public; redirect to `/` when already signed in |
+| `/login` | public; redirect to `/` when already signed in |
 | `/` (dashboard) | 🔒 signed-in only |
 | `/build` (builder form) | 🔒 signed-in only; redirects to `/` at the agent limit |
 | `POST /agents` | 🔒 signed-in **+ reCAPTCHA** |
@@ -85,7 +85,11 @@ browser ──▶ Next.js /api/*  ──▶  NestJS API  ──▶  Supabase / R
 | `/a/<agentId>` | **public** — the share link is the product |
 | `POST /agents/:id/web-call` | **public**, rate-limited to 5/min per IP |
 
-Registration is open — anyone can create an account.
+Registration is closed. There is no sign-up page and no `POST /auth/signup`
+endpoint — create accounts by hand in the Supabase dashboard
+(**Authentication → Users → Add user**), which is the only place that holds the
+service-role key. `/signup` redirects to `/login` so old links still land
+somewhere sensible.
 
 ## Limits
 

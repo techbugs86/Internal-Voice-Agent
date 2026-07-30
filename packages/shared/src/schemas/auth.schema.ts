@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Credentials for sign-up and sign-in.
+ * Credentials for sign-in.
  *
  * The password floor is 8 characters to match Supabase Auth's own default — a
  * shorter one is rejected upstream anyway, and catching it here gives a better

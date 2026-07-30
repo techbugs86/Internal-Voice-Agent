@@ -25,7 +25,7 @@ const API_URL = (process.env.API_URL ?? "http://localhost:4100").replace(
   "",
 );
 
-const AUTH_PAGES = ["/login", "/signup"];
+const AUTH_PAGES = ["/login"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -36,6 +36,12 @@ export async function middleware(request: NextRequest) {
   // than a redirect.
   if (pathname.startsWith("/a/") || pathname.startsWith("/api/")) {
     return NextResponse.next();
+  }
+
+  // Registration is closed — accounts are created by hand. Old links and
+  // bookmarks land on sign-in rather than a 404.
+  if (pathname === "/signup") {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   let accessToken = request.cookies.get(ACCESS_COOKIE)?.value ?? null;

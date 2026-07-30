@@ -25,27 +25,20 @@ import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import { AuthService } from "./auth.service";
 
 /**
- * Sign-up and sign-in.
+ * Sign-in.
  *
- * These go through our API rather than the browser talking to Supabase Auth
+ * This goes through our API rather than the browser talking to Supabase Auth
  * directly, and that is the whole reason the captcha is worth anything: if the
  * browser held the Supabase anon key and posted straight to GoTrue, a bot would
  * simply skip us. Routing credentials through here makes this the only door.
+ *
+ * There is deliberately no sign-up endpoint. Registration is closed — accounts
+ * are created by hand in the Supabase dashboard — so the only way to mint one is
+ * with the service-role key, which this app never holds.
  */
 @Controller("auth")
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
-
-  /** Open registration — anyone can create an account. */
-  @Post("signup")
-  @UseGuards(RecaptchaGuard)
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @HttpCode(HttpStatus.CREATED)
-  signUp(
-    @Body(new ZodValidationPipe(credentialsSchema)) body: Credentials,
-  ): Promise<AuthResult> {
-    return this.auth.signUp(body.email, body.password);
-  }
 
   @Post("login")
   @UseGuards(RecaptchaGuard)

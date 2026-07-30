@@ -12,10 +12,13 @@ import type { Env } from "../../common/config/env.schema";
 /**
  * Supabase Auth, over its REST API.
  *
- * Deliberately not the supabase-js SDK: we need exactly five calls, all
+ * Deliberately not the supabase-js SDK: we need exactly four calls, all
  * stateless, and the SDK's session-persistence machinery is built for a browser
  * that owns one user — not a server handling many. Raw fetch keeps this module
  * a thin, obvious adapter.
+ *
+ * No sign-up call: registration is closed, and accounts are created by hand in
+ * the Supabase dashboard.
  *
  * Nothing above this file knows Supabase exists. Swapping in another identity
  * provider means rewriting this one class.
@@ -24,7 +27,6 @@ import type { Env } from "../../common/config/env.schema";
 type GoTrueUser = {
   id: string;
   email?: string;
-  identities?: unknown[];
 };
 
 type GoTrueSession = {
@@ -54,40 +56,12 @@ export class SupabaseAuthService {
 
   /* ------------------------------------------------------------- public API */
 
-  async signUp(email: string, password: string): Promise<AuthResult> {
-    const body = await this.call<GoTrueSession | GoTrueUser>("/auth/v1/signup", {
-      method: "POST",
-      body: { email, password },
-    });
-
-    // With email confirmation enabled Supabase returns the bare user and no
-    // tokens; with it disabled it returns a full session. Presence of the token
-    // is the only reliable discriminator.
-    if (isSession(body)) {
-      return {
-        user: toUser(body.user),
-        session: toSession(body),
-        emailConfirmationRequired: false,
-      };
-    }
-
-    return {
-      user: toUser(body),
-      session: null,
-      emailConfirmationRequired: true,
-    };
-  }
-
   async signIn(email: string, password: string): Promise<AuthResult> {
     const body = await this.call<GoTrueSession>(
       "/auth/v1/token?grant_type=password",
       { method: "POST", body: { email, password } },
     );
-    return {
-      user: toUser(body.user),
-      session: toSession(body),
-      emailConfirmationRequired: false,
-    };
+    return { user: toUser(body.user), session: toSession(body) };
   }
 
   async refresh(refreshToken: string): Promise<AuthSession> {
@@ -203,11 +177,6 @@ export class SupabaseAuthService {
       return new BadRequestException(detail || "That request was not valid.");
     }
     if (status === 422) {
-      if (/already registered|already exists/i.test(detail)) {
-        return new BadRequestException(
-          "An account with that email already exists. Try signing in.",
-        );
-      }
       return new BadRequestException(detail || "That request was not valid.");
     }
     if (status === 429) {
@@ -224,10 +193,6 @@ export class SupabaseAuthService {
 }
 
 /* -------------------------------------------------------------------- helpers */
-
-function isSession(body: GoTrueSession | GoTrueUser): body is GoTrueSession {
-  return typeof (body as GoTrueSession).access_token === "string";
-}
 
 function toUser(user: GoTrueUser): AuthUser {
   return { id: user.id, email: user.email ?? "" };

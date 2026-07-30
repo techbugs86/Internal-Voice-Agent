@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type { AuthResult, AuthSession, AuthUser } from "@agent/shared";
 import { SupabaseAuthService } from "../../infra/supabase/supabase-auth.service";
 
@@ -7,24 +7,15 @@ import { SupabaseAuthService } from "../../infra/supabase/supabase-auth.service"
  *
  * Thin today — it forwards to the Supabase adapter — but it is the seam that
  * matters: the controller depends on this, not on `SupabaseAuthService`. Any
- * behaviour that is ours rather than the provider's (welcome emails, audit
- * trails, an allowlist, org membership) belongs here, and adding it will not
- * touch the HTTP layer.
+ * behaviour that is ours rather than the provider's (audit trails, an
+ * allowlist, org membership) belongs here, and adding it will not touch the
+ * HTTP layer.
+ *
+ * There is no sign-up: accounts are created by hand in the Supabase dashboard.
  */
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(private readonly supabase: SupabaseAuthService) {}
-
-  async signUp(email: string, password: string): Promise<AuthResult> {
-    const result = await this.supabase.signUp(email, password);
-    this.logger.log(
-      `Account created for ${email}` +
-        (result.emailConfirmationRequired ? " (awaiting email confirmation)" : ""),
-    );
-    return result;
-  }
 
   signIn(email: string, password: string): Promise<AuthResult> {
     return this.supabase.signIn(email, password);

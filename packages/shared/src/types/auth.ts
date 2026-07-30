@@ -16,13 +16,11 @@ export type AuthSession = {
   expiresIn: number;
 };
 
+/**
+ * What a successful sign-in produces. There is no partial case: registration is
+ * closed, so an account is either usable or the sign-in failed outright.
+ */
 export type AuthResult = {
   user: AuthUser;
-  /**
-   * Null when the project requires email confirmation — the account exists but
-   * cannot be used until the user clicks the link in their inbox.
-   */
-  session: AuthSession | null;
-  /** True when `session` is null because confirmation is pending. */
-  emailConfirmationRequired: boolean;
+  session: AuthSession;
 };
