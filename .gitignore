@@ -2,7 +2,9 @@ node_modules/
 dist/
 .next/
 out/
-build/
+# No bare `build/` here: nothing in this repo emits one (Next writes .next/,
+# Nest writes dist/), and the pattern matched the /build route directory in the
+# web app, silently keeping that page out of every deploy.
 
 .env
 .env.local
