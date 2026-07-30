@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
   // Dockerfile small. `outputFileTracingRoot` points at the repo root so the
   // trace follows the symlink into packages/shared instead of stopping at
   // apps/web and shipping a build that cannot resolve it.
-  output: "standalone",
+  //
+  // Vercel builds its own output format and does not need the standalone
+  // bundle, so it is skipped there — the tracing root below still applies,
+  // which is what lets the monorepo resolve @agent/shared either way.
+  output: process.env.VERCEL ? undefined : "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
 
   // Compiled from TypeScript in the workspace rather than installed from a
