@@ -79,7 +79,7 @@ browser ──▶ Next.js /api/*  ──▶  NestJS API  ──▶  Supabase / R
 |---|---|
 | `/login` | public; redirect to `/` when already signed in |
 | `/` (dashboard) | 🔒 signed-in only |
-| `/build` (builder form) | 🔒 signed-in only; redirects to `/` at the agent limit |
+| `/build` (builder form) | 🔒 signed-in only |
 | `POST /agents` | 🔒 signed-in **+ reCAPTCHA** |
 | `GET /agents` | 🔒 returns only the caller's own agents |
 | `/a/<agentId>` | **public** — the share link is the product |
@@ -93,17 +93,18 @@ somewhere sensible.
 
 ## Limits
 
-Both live in [packages/shared/src/constants/limits.ts](packages/shared/src/constants/limits.ts)
+These live in [packages/shared/src/constants/limits.ts](packages/shared/src/constants/limits.ts)
 so the UI and the API cannot disagree about them.
 
 | Limit | Value | Enforced by |
 |---|---|---|
-| Agents per account | 3 | `AgentsService.create` counts existing rows before spending anything. The dashboard also hides the build button, but that is presentation. |
+| Agents per account | none | An account may build as many as it likes. |
 | Call duration | 3 minutes | Retell's `max_call_duration_ms` on the agent — it hangs up itself, so the cap survives a tampered page. The browser also counts down and ends the call cleanly a moment earlier. |
 
-The agent limit has a benign race: two simultaneous requests can both pass the
-count check and produce a fourth agent. Closing it needs a database constraint
-or a lock, which is not worth it at three per account.
+There is no cap on agents per account. Since building one spends Anthropic and
+Retell credit, what stands between a signed-in account and unbounded spend is
+the reCAPTCHA guard and the 10/min per-IP rate limit on `POST /agents` — worth
+knowing before handing out a login.
 
 ---
 

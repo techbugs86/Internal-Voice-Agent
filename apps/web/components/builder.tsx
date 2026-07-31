@@ -29,7 +29,7 @@ const EMPTY: AgentSpec = {
   language: DEFAULT_LANGUAGE,
 };
 
-export default function Builder({ remaining }: { remaining: number }) {
+export default function Builder() {
   const router = useRouter();
   const [spec, setSpec] = useState<AgentSpec>(EMPTY);
 
@@ -290,8 +290,7 @@ export default function Builder({ remaining }: { remaining: number }) {
               </p>
             )}
             <p className="mt-3 text-[13px] text-[#5c6472]">
-              This will use one of your {remaining} remaining{" "}
-              {remaining === 1 ? "agent" : "agents"}. Calls are capped at{" "}
+              Calls with this agent are capped at{" "}
               {MAX_CALL_DURATION_MS / 60_000} minutes.
             </p>
           </>

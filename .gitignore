@@ -16,3 +16,6 @@ next-env.d.ts
 
 # Leftover from the old JSON-file agent store, replaced by Postgres.
 data/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat

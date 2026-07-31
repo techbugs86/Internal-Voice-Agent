@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { MAX_AGENTS_PER_USER, type AgentListResult } from "@agent/shared";
 import Builder from "@/components/builder";
-import { apiGet } from "@/lib/api-client";
-import { getAccessToken } from "@/lib/server-session";
 
-export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Build an agent · Agent Builder" };
 
-export default async function BuildPage() {
-  const accessToken = await getAccessToken();
-  const result = await apiGet<AgentListResult>("/agents", accessToken);
-
-  // Nobody should reach a form they cannot submit. The API rejects the request
-  // too — this only saves the user filling it in first.
-  if (result && result.remaining <= 0) redirect("/");
-
+/**
+ * The builder form.
+ *
+ * Middleware guarantees a session before this renders, and there is no
+ * per-account allowance left to look up, so the page needs nothing from the
+ * API — the form posts to /api/agents on submit and that is the only call.
+ */
+export default function BuildPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-12">
       <header className="mb-8">
@@ -36,7 +31,7 @@ export default async function BuildPage() {
         </p>
       </header>
 
-      <Builder remaining={result?.remaining ?? MAX_AGENTS_PER_USER} />
+      <Builder />
     </main>
   );
 }

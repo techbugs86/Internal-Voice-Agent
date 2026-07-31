@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { count, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { AgentSummary, StoredAgent } from "@agent/shared";
 import { DRIZZLE, type Database } from "../../db/db.module";
 import { agents, type AgentRow } from "../../db/schema";
@@ -82,15 +82,6 @@ export class AgentsRepository {
       companyName: r.spec.companyName ?? "",
       createdAt: r.createdAt.toISOString(),
     }));
-  }
-
-  /** How many agents this user owns. Backs the per-account limit. */
-  async countByOwner(userId: string): Promise<number> {
-    const [row] = await this.db
-      .select({ total: count() })
-      .from(agents)
-      .where(eq(agents.userId, userId));
-    return row?.total ?? 0;
   }
 }
 
