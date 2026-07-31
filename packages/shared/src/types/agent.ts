@@ -72,12 +72,14 @@ export type AgentSummary = {
   url: string;
 };
 
-/** What the dashboard needs: the agents plus how many more are allowed. */
+/**
+ * What the dashboard needs.
+ *
+ * No allowance is reported because there is no cap — an account may create as
+ * many agents as it likes.
+ */
 export type AgentListResult = {
   agents: AgentSummary[];
-  /** Agents this account may still create. */
-  remaining: number;
-  limit: number;
 };
 
 export type WebCallToken = {

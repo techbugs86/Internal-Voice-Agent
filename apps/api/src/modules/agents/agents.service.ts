@@ -1,13 +1,11 @@
 import {
   BadGatewayException,
-  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
-  MAX_AGENTS_PER_USER,
   MAX_CALL_DURATION_MS,
   type AgentListResult,
   type AgentSpec,
@@ -40,20 +38,12 @@ export class AgentsService {
     this.appUrl = config.get("APP_URL", { infer: true }).replace(/\/$/, "");
   }
 
+  /**
+   * Builds an agent for a user. There is no per-account cap — the brakes on
+   * this are the auth guard, the reCAPTCHA guard, and the per-IP rate limit on
+   * the controller, all of which run before anything here costs money.
+   */
   async create(spec: AgentSpec, userId: string): Promise<CreateAgentResult> {
-    // Checked before anything costs money. The UI also hides the button at the
-    // limit, but that is presentation — this is the rule.
-    //
-    // Two simultaneous requests could both pass this check and produce a fourth
-    // agent. Closing that properly needs a database constraint or a lock; at
-    // three-per-account it is not worth the complexity.
-    const owned = await this.repo.countByOwner(userId);
-    if (owned >= MAX_AGENTS_PER_USER) {
-      throw new ForbiddenException(
-        `You have reached the limit of ${MAX_AGENTS_PER_USER} agents.`,
-      );
-    }
-
     let compiledPrompt: string;
     let llmId: string;
     let agentId: string;
@@ -120,13 +110,11 @@ export class AgentsService {
     };
   }
 
-  /** Backs the dashboard: the agents plus how many more are allowed. */
+  /** Backs the dashboard. */
   async listForUser(userId: string): Promise<AgentListResult> {
     const rows = await this.repo.listByOwner(userId);
     return {
       agents: rows.map((r) => ({ ...r, url: this.shareUrl(r.agentId) })),
-      remaining: Math.max(MAX_AGENTS_PER_USER - rows.length, 0),
-      limit: MAX_AGENTS_PER_USER,
     };
   }
 
