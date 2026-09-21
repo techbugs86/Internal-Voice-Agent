@@ -17,6 +17,7 @@ import type { Env } from "../../common/config/env.schema";
 import { PromptCompilerService } from "../../infra/prompt/prompt-compiler.service";
 import { RetellService } from "../../infra/retell/retell.service";
 import { AgentsRepository } from "./agents.repository";
+import { isLegacyAgent } from "./legacy-cutoff";
 
 /**
  * Everything the product does with agents.
@@ -130,12 +131,19 @@ export class AgentsService {
    *   2. Retell itself — every agent we created lives there permanently, so the
    *      share link keeps working even when our database is down.
    *
-   * Returns null only when neither knows the agent, which is a genuine 404.
+   * Returns null when neither knows the agent, and also for agents built in
+   * the old Retell workspace — the current key cannot call those, so the share
+   * page must 404 rather than render a button that is guaranteed to fail.
    */
   async getPublicView(agentId: string): Promise<AgentView | null> {
     try {
       const stored = await this.repo.findById(agentId);
       if (stored) {
+        // Old workspace: the row is kept on purpose, but there is no callable
+        // agent behind it any more. Returning null here rather than falling
+        // through also skips a Retell lookup that is guaranteed to 404.
+        if (isLegacyAgent(stored.createdAt)) return null;
+
         return {
           agentId: stored.agentId,
           agentName: stored.spec.agentName,
