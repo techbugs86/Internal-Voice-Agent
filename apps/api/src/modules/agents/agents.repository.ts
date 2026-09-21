@@ -1,8 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import type { AgentSummary, StoredAgent } from "@agent/shared";
 import { DRIZZLE, type Database } from "../../db/db.module";
 import { agents, type AgentRow } from "../../db/schema";
+import { RETELL_ACCOUNT_CUTOFF } from "./legacy-cutoff";
 
 /**
  * A list entry before the share URL is attached. Building that URL needs
@@ -63,7 +64,13 @@ export class AgentsRepository {
     return rows[0] ? toStored(rows[0]) : null;
   }
 
-  /** The signed-in user's agents, newest first. */
+  /**
+   * The signed-in user's agents, newest first.
+   *
+   * Agents from the old Retell workspace are filtered out rather than deleted —
+   * see RETELL_ACCOUNT_CUTOFF. The existing (user_id, created_at) index covers
+   * both halves of this predicate, so the extra condition is free.
+   */
   async listByOwner(userId: string): Promise<AgentListRow[]> {
     const rows = await this.db
       .select({
@@ -73,7 +80,12 @@ export class AgentsRepository {
         createdAt: agents.createdAt,
       })
       .from(agents)
-      .where(eq(agents.userId, userId))
+      .where(
+        and(
+          eq(agents.userId, userId),
+          gte(agents.createdAt, RETELL_ACCOUNT_CUTOFF),
+        ),
+      )
       .orderBy(desc(agents.createdAt));
 
     return rows.map((r) => ({
