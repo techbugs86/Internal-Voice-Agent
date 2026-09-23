@@ -17,7 +17,19 @@ import type { Env } from "../../common/config/env.schema";
 import { PromptCompilerService } from "../../infra/prompt/prompt-compiler.service";
 import { RetellService } from "../../infra/retell/retell.service";
 import { AgentsRepository } from "./agents.repository";
-import { isLegacyAgent } from "./legacy-cutoff";
+
+/**
+ * A share id resolved into the two things callers need: what the page renders,
+ * and which Retell agent to dial.
+ *
+ * They are separate values. `view.agentId` is the id in the share link and is
+ * what the browser sees; `retellAgentId` is an implementation detail of
+ * whichever Retell account hosts the agent, and never leaves this API.
+ */
+type ResolvedAgent = {
+  view: AgentView;
+  retellAgentId: string;
+};
 
 /**
  * Everything the product does with agents.
@@ -82,6 +94,12 @@ export class AgentsService {
     // 4. Remember it, so /a/<agentId> can show the company name and the owner
     //    can find it again.
     //
+    //    Both id columns get Retell's id here. A freshly built agent lives in
+    //    the account we just called, so the share id and the Retell id start
+    //    out identical. They diverge only if the agent is later migrated to a
+    //    different account, which rewrites retellAgentId and leaves the share
+    //    id — and therefore every link already handed out — untouched.
+    //
     //    Best-effort on purpose: the agent already exists in Retell by this
     //    point and the share link already works, so a database blip must not
     //    turn a successful creation into an error the user sees. The cost is
@@ -89,6 +107,7 @@ export class AgentsService {
     try {
       await this.repo.save({
         agentId,
+        retellAgentId: agentId,
         userId,
         llmId,
         spec,
@@ -124,30 +143,33 @@ export class AgentsService {
   }
 
   /**
-   * Resolves an agent for the public /a/<id> page.
+   * Resolves a share id to the page content and the Retell agent behind it.
    *
    * Order matters:
-   *   1. Our registry — has the full intake form, including the company name.
-   *   2. Retell itself — every agent we created lives there permanently, so the
-   *      share link keeps working even when our database is down.
+   *   1. Our registry — has the full intake form, including the company name,
+   *      and is the only place that knows which Retell agent a share id maps to
+   *      once the two have diverged.
+   *   2. Retell itself — so the share link keeps working when our database is
+   *      down.
    *
-   * Returns null when neither knows the agent, and also for agents built in
-   * the old Retell workspace — the current key cannot call those, so the share
-   * page must 404 rather than render a button that is guaranteed to fail.
+   * The fallback can only answer for agents whose share id *is* their Retell
+   * id: every agent created since the account move, and none of the ones
+   * migrated across it. A migrated agent therefore 404s while the registry is
+   * unavailable, rather than rendering a button that cannot work. That is the
+   * same honest failure the old account cutoff produced, now scoped to an
+   * outage instead of applying permanently.
    */
-  async getPublicView(agentId: string): Promise<AgentView | null> {
+  private async resolve(agentId: string): Promise<ResolvedAgent | null> {
     try {
       const stored = await this.repo.findById(agentId);
       if (stored) {
-        // Old workspace: the row is kept on purpose, but there is no callable
-        // agent behind it any more. Returning null here rather than falling
-        // through also skips a Retell lookup that is guaranteed to 404.
-        if (isLegacyAgent(stored.createdAt)) return null;
-
         return {
-          agentId: stored.agentId,
-          agentName: stored.spec.agentName,
-          companyName: stored.spec.companyName,
+          retellAgentId: stored.retellAgentId,
+          view: {
+            agentId: stored.agentId,
+            agentName: stored.spec.agentName,
+            companyName: stored.spec.companyName,
+          },
         };
       }
     } catch (err) {
@@ -163,9 +185,12 @@ export class AgentsService {
       const agent = await this.retell.getAgent(agentId);
       if (!agent?.agent_id) return null;
       return {
-        agentId: agent.agent_id,
-        agentName: agent.agent_name?.trim() || "your AI agent",
-        companyName: "",
+        retellAgentId: agent.agent_id,
+        view: {
+          agentId: agent.agent_id,
+          agentName: agent.agent_name?.trim() || "your AI agent",
+          companyName: "",
+        },
       };
     } catch {
       // Retell 404s for an unknown id, which is the normal "no such agent" path.
@@ -173,19 +198,27 @@ export class AgentsService {
     }
   }
 
+  /** Resolves an agent for the public /a/<id> page. */
+  async getPublicView(agentId: string): Promise<AgentView | null> {
+    const resolved = await this.resolve(agentId);
+    return resolved?.view ?? null;
+  }
+
   /**
    * Mints a Retell web-call access token.
    *
    * The agent is looked up first so this cannot be used to start calls against
    * arbitrary agent ids in the Retell account — only ones reachable through a
-   * share link we handed out.
+   * share link we handed out. That gate is also what makes it safe to dial
+   * `retellAgentId` here: the caller supplies a share id, and only the registry
+   * can turn one of those into a Retell id.
    */
   async createWebCall(agentId: string): Promise<WebCallToken> {
-    const agent = await this.getPublicView(agentId);
-    if (!agent) throw new NotFoundException("Unknown agent.");
+    const resolved = await this.resolve(agentId);
+    if (!resolved) throw new NotFoundException("Unknown agent.");
 
     try {
-      const call = await this.retell.createWebCall(agent.agentId);
+      const call = await this.retell.createWebCall(resolved.retellAgentId);
       return { accessToken: call.access_token, callId: call.call_id };
     } catch (err) {
       this.logger.error(

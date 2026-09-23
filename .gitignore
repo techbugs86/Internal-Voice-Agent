@@ -16,3 +16,6 @@ next-env.d.ts
 
 # Leftover from the old JSON-file agent store, replaced by Postgres.
 data/
+
+# Written by scripts/migrate-agents-to-primary.mjs, one line per moved agent.
+apps/api/scripts/migration-mapping.csv

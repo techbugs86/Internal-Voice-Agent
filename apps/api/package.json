@@ -8,6 +8,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:init": "node scripts/db-init.mjs",
+    "agents:migrate": "node scripts/migrate-agents-to-primary.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },

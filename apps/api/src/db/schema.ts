@@ -1,4 +1,12 @@
-import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import type { AgentSpec } from "@agent/shared";
 
 /**
@@ -15,8 +23,27 @@ import type { AgentSpec } from "@agent/shared";
 export const agents = pgTable(
   "agents",
   {
-    /** Retell's id. Ours too — there is no reason to mint a second one. */
+    /**
+     * The id in the share link, and our primary key.
+     *
+     * This used to be Retell's id as well, on the assumption that one account
+     * would host every agent forever. Moving accounts broke that: Retell
+     * workspaces are isolated, so recreating an agent elsewhere mints a new id.
+     * Rewriting this column would have changed every share URL already handed
+     * to a client, so it no longer tracks Retell at all — it is ours, it is
+     * stable, and `retell_agent_id` below carries whatever Retell calls the
+     * agent today.
+     */
     agentId: text("agent_id").primaryKey(),
+
+    /**
+     * The id Retell knows this agent by, in whichever account currently hosts
+     * it. Equal to `agent_id` for everything created since the last account
+     * move; different for agents migrated across one.
+     *
+     * Every call into the Retell API uses this. Nothing user-facing does.
+     */
+    retellAgentId: text("retell_agent_id").notNull(),
 
     /**
      * Owner. References auth.users(id) with ON DELETE CASCADE — see init.sql.
@@ -45,6 +72,9 @@ export const agents = pgTable(
       table.userId,
       table.createdAt,
     ),
+    // Two rows pointing at one Retell agent would mean a migration ran twice
+    // and silently pointed two share links at the same place.
+    byRetellId: uniqueIndex("agents_retell_agent_id_key").on(table.retellAgentId),
   }),
 );
 

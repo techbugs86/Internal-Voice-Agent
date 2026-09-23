@@ -11,6 +11,7 @@
 
 create table if not exists public.agents (
   agent_id        text        primary key,
+  retell_agent_id text        not null,
   user_id         uuid        not null references auth.users (id) on delete cascade,
   llm_id          text        not null,
   agent_name      text        not null,
@@ -22,6 +23,26 @@ create table if not exists public.agents (
 -- Every list query is "this user's agents, newest first".
 create index if not exists agents_user_id_created_at_idx
   on public.agents (user_id, created_at);
+
+-- ----------------------------------------------------------------------------
+--  retell_agent_id, added when the project moved Retell accounts.
+--
+--  agent_id used to be Retell's id as well. It is now ours alone, so share
+--  links survive an account move, and this column carries whatever Retell
+--  calls the agent today. For a database created before this change the three
+--  statements below add it and seed it from agent_id, which is correct: every
+--  row that predates the column was created when the two were the same value.
+--
+--  All three are no-ops on a fresh database, where the column is already in
+--  the create table above.
+-- ----------------------------------------------------------------------------
+alter table public.agents add column if not exists retell_agent_id text;
+update public.agents set retell_agent_id = agent_id where retell_agent_id is null;
+alter table public.agents alter column retell_agent_id set not null;
+
+-- Two rows pointing at one Retell agent would mean a migration ran twice.
+create unique index if not exists agents_retell_agent_id_key
+  on public.agents (retell_agent_id);
 
 -- ----------------------------------------------------------------------------
 --  Row Level Security

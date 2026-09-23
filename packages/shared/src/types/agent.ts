@@ -34,7 +34,15 @@ export type AgentSpec = {
 
 /** A row in the agent registry. `userId` is the owner — see the auth module. */
 export type StoredAgent = {
+  /** The id in the share link. Stable for the life of the agent. */
   agentId: string;
+  /**
+   * The id Retell knows this agent by, in whichever account currently hosts it.
+   *
+   * Equal to `agentId` for everything created since the last account move, and
+   * different for agents migrated across one. Always dial this, never `agentId`.
+   */
+  retellAgentId: string;
   userId: string;
   llmId: string;
   spec: AgentSpec;

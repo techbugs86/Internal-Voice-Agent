@@ -1,9 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { AgentSummary, StoredAgent } from "@agent/shared";
 import { DRIZZLE, type Database } from "../../db/db.module";
 import { agents, type AgentRow } from "../../db/schema";
-import { RETELL_ACCOUNT_CUTOFF } from "./legacy-cutoff";
 
 /**
  * A list entry before the share URL is attached. Building that URL needs
@@ -30,6 +29,7 @@ export class AgentsRepository {
       .insert(agents)
       .values({
         agentId: agent.agentId,
+        retellAgentId: agent.retellAgentId,
         userId: agent.userId,
         llmId: agent.llmId,
         agentName: agent.spec.agentName,
@@ -40,6 +40,9 @@ export class AgentsRepository {
       .onConflictDoUpdate({
         target: agents.agentId,
         set: {
+          // A retry recreates the agent in Retell, so both ids can differ from
+          // whatever the first attempt stored.
+          retellAgentId: agent.retellAgentId,
           llmId: agent.llmId,
           agentName: agent.spec.agentName,
           spec: agent.spec,
@@ -67,9 +70,10 @@ export class AgentsRepository {
   /**
    * The signed-in user's agents, newest first.
    *
-   * Agents from the old Retell workspace are filtered out rather than deleted —
-   * see RETELL_ACCOUNT_CUTOFF. The existing (user_id, created_at) index covers
-   * both halves of this predicate, so the extra condition is free.
+   * Everything the user owns is listed. Agents built in the previous Retell
+   * account were filtered out here for as long as they were uncallable; they
+   * have since been migrated into the current account and are reachable again,
+   * so there is nothing left to hide.
    */
   async listByOwner(userId: string): Promise<AgentListRow[]> {
     const rows = await this.db
@@ -80,12 +84,7 @@ export class AgentsRepository {
         createdAt: agents.createdAt,
       })
       .from(agents)
-      .where(
-        and(
-          eq(agents.userId, userId),
-          gte(agents.createdAt, RETELL_ACCOUNT_CUTOFF),
-        ),
-      )
+      .where(eq(agents.userId, userId))
       .orderBy(desc(agents.createdAt));
 
     return rows.map((r) => ({
@@ -100,6 +99,7 @@ export class AgentsRepository {
 function toStored(row: AgentRow): StoredAgent {
   return {
     agentId: row.agentId,
+    retellAgentId: row.retellAgentId,
     userId: row.userId,
     llmId: row.llmId,
     spec: row.spec,
