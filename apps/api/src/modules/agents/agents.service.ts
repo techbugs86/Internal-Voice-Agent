@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  GoneException,
   Injectable,
   Logger,
   NotFoundException,
@@ -7,6 +8,8 @@ import {
 import { ConfigService } from "@nestjs/config";
 import {
   MAX_CALL_DURATION_MS,
+  agentExpiresAt,
+  isAgentExpired,
   type AgentListResult,
   type AgentSpec,
   type AgentView,
@@ -113,6 +116,7 @@ export class AgentsService {
         spec,
         compiledPrompt,
         createdAt: new Date().toISOString(),
+        retellDeletedAt: null,
       });
     } catch (err) {
       this.logger.error(
@@ -134,7 +138,12 @@ export class AgentsService {
   async listForUser(userId: string): Promise<AgentListResult> {
     const rows = await this.repo.listByOwner(userId);
     return {
-      agents: rows.map((r) => ({ ...r, url: this.shareUrl(r.agentId) })),
+      agents: rows.map((r) => ({
+        ...r,
+        url: this.shareUrl(r.agentId),
+        status: isAgentExpired(r.createdAt) ? ("expired" as const) : ("active" as const),
+        expiresAt: agentExpiresAt(r.createdAt).toISOString(),
+      })),
     };
   }
 
@@ -163,12 +172,17 @@ export class AgentsService {
     try {
       const stored = await this.repo.findById(agentId);
       if (stored) {
+        // Expired agents still resolve. The share page needs the name and the
+        // company to tell the visitor what has lapsed, which is the whole point
+        // of expiring gracefully rather than 404ing a link a client was given.
         return {
           retellAgentId: stored.retellAgentId,
           view: {
             agentId: stored.agentId,
             agentName: stored.spec.agentName,
             companyName: stored.spec.companyName,
+            status: isAgentExpired(stored.createdAt) ? "expired" : "active",
+            expiresAt: agentExpiresAt(stored.createdAt).toISOString(),
           },
         };
       }
@@ -184,12 +198,17 @@ export class AgentsService {
     try {
       const agent = await this.retell.getAgent(agentId);
       if (!agent?.agent_id) return null;
+      // Retell knows nothing about when we built the agent, so the trial window
+      // is unknowable here. Reaching it at all means it has not been retired,
+      // so treat it as live rather than guessing.
       return {
         retellAgentId: agent.agent_id,
         view: {
           agentId: agent.agent_id,
           agentName: agent.agent_name?.trim() || "your AI agent",
           companyName: "",
+          status: "active",
+          expiresAt: null,
         },
       };
     } catch {
@@ -216,6 +235,16 @@ export class AgentsService {
   async createWebCall(agentId: string): Promise<WebCallToken> {
     const resolved = await this.resolve(agentId);
     if (!resolved) throw new NotFoundException("Unknown agent.");
+
+    // Checked here and not only in the page. The share page hides the button
+    // for an expired agent, but this endpoint is public and reachable directly,
+    // and by this point the agent is usually gone from Retell anyway - so the
+    // alternative is a paid API call that fails with a generic 502.
+    if (resolved.view.status === "expired") {
+      throw new GoneException(
+        "This agent's trial has ended. Get in touch and we can bring it back.",
+      );
+    }
 
     try {
       const call = await this.retell.createWebCall(resolved.retellAgentId);
