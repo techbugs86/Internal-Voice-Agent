@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:init": "node scripts/db-init.mjs",
     "agents:migrate": "node scripts/migrate-agents-to-primary.mjs",
+    "agents:expire": "node scripts/expire-agents.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },
@@ -19,6 +20,7 @@
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^12.0.2",
     "@nestjs/throttler": "^6.4.0",
     "drizzle-orm": "^0.38.3",
     "postgres": "^3.4.5",

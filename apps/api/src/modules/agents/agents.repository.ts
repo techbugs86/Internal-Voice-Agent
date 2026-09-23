@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, lte } from "drizzle-orm";
 import type { AgentSummary, StoredAgent } from "@agent/shared";
 import { DRIZZLE, type Database } from "../../db/db.module";
 import { agents, type AgentRow } from "../../db/schema";
@@ -9,7 +9,16 @@ import { agents, type AgentRow } from "../../db/schema";
  * APP_URL, which is application config rather than stored data, so the service
  * adds it.
  */
-export type AgentListRow = Omit<AgentSummary, "url">;
+export type AgentListRow = Omit<AgentSummary, "url" | "status" | "expiresAt">;
+
+/** What the nightly cleanup needs to retire one agent. */
+export type ExpiredAgentRow = {
+  agentId: string;
+  retellAgentId: string;
+  llmId: string;
+  agentName: string;
+  createdAt: Date;
+};
 
 /**
  * All database access for agents.
@@ -36,6 +45,9 @@ export class AgentsRepository {
         spec: agent.spec,
         compiledPrompt: agent.compiledPrompt,
         createdAt: new Date(agent.createdAt),
+        retellDeletedAt: agent.retellDeletedAt
+          ? new Date(agent.retellDeletedAt)
+          : null,
       })
       .onConflictDoUpdate({
         target: agents.agentId,
@@ -47,8 +59,47 @@ export class AgentsRepository {
           agentName: agent.spec.agentName,
           spec: agent.spec,
           compiledPrompt: agent.compiledPrompt,
+          // A retry rebuilt the agent in Retell, so any record of it having
+          // been cleaned up no longer describes reality.
+          retellDeletedAt: null,
         },
       });
+  }
+
+  /**
+   * Agents past their trial window that are still in Retell.
+   *
+   * Driven by `retell_deleted_at is null` rather than by date alone, so the
+   * nightly run only touches what it has not already retired instead of
+   * re-issuing a delete for every expired agent every night, forever.
+   */
+  async listExpiredAwaitingCleanup(
+    expiredBefore: Date,
+  ): Promise<ExpiredAgentRow[]> {
+    return this.db
+      .select({
+        agentId: agents.agentId,
+        retellAgentId: agents.retellAgentId,
+        llmId: agents.llmId,
+        agentName: agents.agentName,
+        createdAt: agents.createdAt,
+      })
+      .from(agents)
+      .where(
+        and(
+          lte(agents.createdAt, expiredBefore),
+          isNull(agents.retellDeletedAt),
+        ),
+      )
+      .orderBy(agents.createdAt);
+  }
+
+  /** Records that an agent has been removed from Retell. The row stays. */
+  async markRetellDeleted(agentId: string, at: Date): Promise<void> {
+    await this.db
+      .update(agents)
+      .set({ retellDeletedAt: at })
+      .where(eq(agents.agentId, agentId));
   }
 
   /**
@@ -105,5 +156,6 @@ function toStored(row: AgentRow): StoredAgent {
     spec: row.spec,
     compiledPrompt: row.compiledPrompt,
     createdAt: row.createdAt.toISOString(),
+    retellDeletedAt: row.retellDeletedAt?.toISOString() ?? null,
   };
 }
