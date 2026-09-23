@@ -17,7 +17,8 @@ create table if not exists public.agents (
   agent_name      text        not null,
   spec            jsonb       not null,
   compiled_prompt text        not null,
-  created_at      timestamptz not null default now()
+  created_at      timestamptz not null default now(),
+  retell_deleted_at timestamptz
 );
 
 -- Every list query is "this user's agents, newest first".
@@ -43,6 +44,18 @@ alter table public.agents alter column retell_agent_id set not null;
 -- Two rows pointing at one Retell agent would mean a migration ran twice.
 create unique index if not exists agents_retell_agent_id_key
   on public.agents (retell_agent_id);
+
+-- ----------------------------------------------------------------------------
+--  retell_deleted_at, added with the 30-day trial window.
+--
+--  Set when the nightly cleanup removes an expired agent from Retell. The row
+--  itself is never deleted: it holds the spec and compiled prompt, which is
+--  what lets an expired agent be rebuilt later on the very same share link.
+--
+--  Nullable on purpose - most rows never have it - and a no-op on a fresh
+--  database, where the column is already in the create table above.
+-- ----------------------------------------------------------------------------
+alter table public.agents add column if not exists retell_deleted_at timestamptz;
 
 -- ----------------------------------------------------------------------------
 --  Row Level Security

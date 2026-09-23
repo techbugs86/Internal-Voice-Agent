@@ -20,7 +20,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:generate": "npm run db:generate -w @agent/api",
     "db:push": "npm run db:push -w @agent/api",
-    "agents:migrate": "npm run agents:migrate -w @agent/api"
+    "agents:migrate": "npm run agents:migrate -w @agent/api",
+    "agents:expire": "npm run agents:expire -w @agent/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

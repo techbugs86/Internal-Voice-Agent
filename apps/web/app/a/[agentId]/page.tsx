@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { AgentView } from "@agent/shared";
 import { apiGet } from "@/lib/api-client";
 import CallClient from "./call-client";
+import ExpiredPanel from "./expired-panel";
 
 /**
  * PUBLIC. The page a client opens to talk to their agent.
@@ -25,6 +26,14 @@ export async function generateMetadata({
   const { agentId } = await params;
   const agent = await fetchAgent(agentId);
   const name = agent?.agentName ?? "your AI agent";
+
+  if (agent?.status === "expired") {
+    return {
+      title: `${name} - trial ended`,
+      description: `The trial for ${name} has ended. Get in touch to bring it back online.`,
+    };
+  }
+
   return {
     title: `Talk with ${name}`,
     description: `Start a live voice conversation with ${name}.`,
@@ -39,6 +48,20 @@ export default async function AgentPage({
   const { agentId } = await params;
   const spec = await fetchAgent(agentId);
   if (!spec) notFound();
+
+  // Past the trial window the agent is gone from Retell, so there is nothing to
+  // call. A 404 here would be the wrong answer twice over: the link is valid,
+  // and the person holding it was given it by us.
+  if (spec.status === "expired") {
+    return (
+      <ExpiredPanel
+        agentId={spec.agentId}
+        agentName={spec.agentName}
+        companyName={spec.companyName}
+        expiresAt={spec.expiresAt}
+      />
+    );
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 py-16">

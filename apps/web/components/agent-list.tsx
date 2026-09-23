@@ -30,6 +30,7 @@ export default function AgentList({ agents }: { agents: AgentSummary[] }) {
 
 function AgentRow({ agent }: { agent: AgentSummary }) {
   const [copied, setCopied] = useState(false);
+  const expired = agent.status === "expired";
 
   async function copy() {
     try {
@@ -46,19 +47,38 @@ function AgentRow({ agent }: { agent: AgentSummary }) {
     <li className="rounded-xl border border-[var(--color-edge)] bg-[var(--color-panel)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-medium">{agent.agentName}</p>
+          <p className="flex items-center gap-2 text-[15px] font-medium">
+            <span className="truncate">{agent.agentName}</span>
+            {expired && (
+              <span className="shrink-0 rounded-full border border-amber-700/40 bg-amber-950/30 px-2 py-0.5 text-[11px] font-medium text-amber-300">
+                Trial ended
+              </span>
+            )}
+          </p>
           <p className="mt-0.5 truncate text-[13px] text-[var(--color-muted)]">
-            {agent.companyName || "—"} · built {formatDate(agent.createdAt)}
+            {agent.companyName || "—"} · built {formatDate(agent.createdAt)} ·{" "}
+            {expired
+              ? `ended ${formatDate(agent.expiresAt)}`
+              : remaining(agent.expiresAt)}
           </p>
         </div>
-        <a
-          href={agent.url}
-          target="_blank"
-          rel="noreferrer"
-          className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110"
-        >
-          🎙 Talk with {agent.agentName}
-        </a>
+        {expired ? (
+          // Deliberately not a link. The share page still works and explains
+          // itself, but offering the owner a "Talk with" button for an agent
+          // that cannot answer is the confusion this badge exists to prevent.
+          <span className="shrink-0 rounded-lg border border-[var(--color-edge)] px-4 py-2.5 text-sm text-[var(--color-muted)]">
+            Not taking calls
+          </span>
+        ) : (
+          <a
+            href={agent.url}
+            target="_blank"
+            rel="noreferrer"
+            className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110"
+          >
+            🎙 Talk with {agent.agentName}
+          </a>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -74,6 +94,16 @@ function AgentRow({ agent }: { agent: AgentSummary }) {
       </div>
     </li>
   );
+}
+
+/** "expires in 6 days" while it matters, and nothing while it does not. */
+function remaining(expiresAt: string): string {
+  const days = Math.ceil(
+    (new Date(expiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+  );
+  if (!Number.isFinite(days)) return "";
+  if (days <= 1) return "expires today";
+  return `expires in ${days} days`;
 }
 
 function formatDate(iso: string): string {

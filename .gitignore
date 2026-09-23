@@ -19,3 +19,6 @@ data/
 
 # Written by scripts/migrate-agents-to-primary.mjs, one line per moved agent.
 apps/api/scripts/migration-mapping.csv
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat

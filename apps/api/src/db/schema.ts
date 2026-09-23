@@ -65,6 +65,18 @@ export const agents = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+
+    /**
+     * When the agent was deleted from Retell after its trial ended. Null while
+     * it still lives there.
+     *
+     * A record of what the cleanup job has done, not the definition of expiry
+     * -- that is derived from created_at, so an agent is expired the moment its
+     * window closes rather than whenever the job next runs. This column exists
+     * so the job can find what is left to do instead of re-deleting everything
+     * every night.
+     */
+    retellDeletedAt: timestamp("retell_deleted_at", { withTimezone: true }),
   },
   (table) => ({
     // Every list query is "this user's agents, newest first".

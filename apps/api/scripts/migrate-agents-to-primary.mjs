@@ -164,10 +164,15 @@ try {
     process.exit(1);
   }
 
+  // Retired agents are skipped. Expiry deletes them from Retell on purpose, so
+  // their ids 404 exactly like a stranded one would -- without this filter a
+  // migration run would helpfully rebuild every expired agent and quietly undo
+  // the trial window.
   const rows = await sql`
     select agent_id, retell_agent_id, llm_id, agent_name, spec, compiled_prompt,
            created_at
       from public.agents
+     where retell_deleted_at is null
      order by created_at asc
   `;
 
@@ -317,6 +322,7 @@ try {
     let bad = 0;
     for (const row of await sql`
       select agent_id, retell_agent_id, agent_name from public.agents
+       where retell_deleted_at is null
     `) {
       const state = await probe(row.retell_agent_id);
       if (state === "reachable") ok += 1;
