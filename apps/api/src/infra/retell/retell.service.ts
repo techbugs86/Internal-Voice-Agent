@@ -87,6 +87,28 @@ export class RetellService {
   }
 
   /**
+   * Removes an agent once its trial window closes.
+   *
+   * A 404 is success, not a failure: it means the agent is already gone, which
+   * is the state we were asking for. Anything else is reported, so a cleanup
+   * run that silently achieved nothing cannot look like a clean one.
+   */
+  async deleteAgent(agentId: string): Promise<void> {
+    await this.callVoid(`/delete-agent/${encodeURIComponent(agentId)}`);
+  }
+
+  /**
+   * Removes the brain behind a deleted agent.
+   *
+   * Retell bills per call rather than per stored LLM, so leaving these behind
+   * costs nothing directly. They are still removed: an account with hundreds of
+   * orphaned LLMs and no agents using them is one nobody can reason about.
+   */
+  async deleteLlm(llmId: string): Promise<void> {
+    await this.callVoid(`/delete-retell-llm/${encodeURIComponent(llmId)}`);
+  }
+
+  /**
    * Mint a short-lived token that lets a browser join a call with this agent.
    * Only the token goes to the client — never the API key.
    */
@@ -95,6 +117,23 @@ export class RetellService {
       method: "POST",
       body: { agent_id: agentId },
     });
+  }
+
+  /** DELETE, which Retell answers with an empty body. */
+  private async callVoid(path: string): Promise<void> {
+    const res = await fetch(`${BASE}${path}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+    });
+
+    // Already absent is the outcome we wanted.
+    if (res.status === 404) return;
+
+    if (!res.ok) {
+      const detail = await res.text();
+      this.logger.error(`Retell DELETE ${path} failed (${res.status}): ${detail}`);
+      throw new Error(`Retell DELETE ${path} failed (${res.status}): ${detail}`);
+    }
   }
 
   private async call<T>(

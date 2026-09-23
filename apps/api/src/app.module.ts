@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
+import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { validateEnv } from "./common/config/env.schema";
 import { ProxyThrottlerGuard } from "./common/guards/proxy-throttler.guard";
@@ -24,6 +25,11 @@ import { HealthModule } from "./modules/health/health.module";
     // @Throttle. This is in-memory, so it is per-process — Cloudflare's edge
     // rules are the layer that catches volumetric abuse before it gets here.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
+
+    // Drives the nightly sweep that retires expired agents from Retell. In
+    // process on purpose -- see AgentExpiryService for why this is not a
+    // crontab entry.
+    ScheduleModule.forRoot(),
 
     DbModule,
     InfraModule,

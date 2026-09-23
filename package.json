@@ -7,20 +7,21 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently -n shared,api,web -c gray,cyan,magenta \"npm:dev:shared\" \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:shared": "npm run dev -w @agent/shared",
-    "dev:api": "npm run dev -w @agent/api",
-    "dev:web": "npm run dev -w @agent/web",
-    "build": "npm run build -w @agent/shared && npm run build -w @agent/api && npm run build -w @agent/web",
-    "build:shared": "npm run build -w @agent/shared",
-    "build:api": "npm run build -w @agent/api",
-    "build:web": "npm run build -w @agent/web",
-    "start:api": "npm run start -w @agent/api",
-    "start:web": "npm run start -w @agent/web",
+    "dev": "node init && concurrently -n shared,api,web -c gray,cyan,magenta \"npm:dev:shared\" \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:shared": "node init && npm run dev -w @agent/shared",
+    "dev:api": "node init && npm run dev -w @agent/api",
+    "dev:web": "node init && npm run dev -w @agent/web",
+    "build": "node init && npm run build -w @agent/shared && npm run build -w @agent/api && npm run build -w @agent/web",
+    "build:shared": "node init && npm run build -w @agent/shared",
+    "build:api": "node init && npm run build -w @agent/api",
+    "build:web": "node init && npm run build -w @agent/web",
+    "start:api": "node init && npm run start -w @agent/api",
+    "start:web": "node init && npm run start -w @agent/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:generate": "npm run db:generate -w @agent/api",
     "db:push": "npm run db:push -w @agent/api",
-    "agents:migrate": "npm run agents:migrate -w @agent/api"
+    "agents:migrate": "npm run agents:migrate -w @agent/api",
+    "agents:expire": "npm run agents:expire -w @agent/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

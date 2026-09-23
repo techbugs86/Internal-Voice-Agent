@@ -6,8 +6,6 @@ out/
 # Nest writes dist/), and the pattern matched the /build route directory in the
 # web app, silently keeping that page out of every deploy.
 
-.env
-.env.local
 .env.*.local
 
 *.tsbuildinfo
@@ -19,3 +17,7 @@ data/
 
 # Written by scripts/migrate-agents-to-primary.mjs, one line per moved agent.
 apps/api/scripts/migration-mapping.csv
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+config.bat

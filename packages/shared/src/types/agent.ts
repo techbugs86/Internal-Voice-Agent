@@ -49,7 +49,18 @@ export type StoredAgent = {
   /** What we actually sent to Retell as `general_prompt`. */
   compiledPrompt: string;
   createdAt: string;
+  /**
+   * When the agent was removed from Retell after its trial ended. Null while it
+   * still lives there.
+   *
+   * This records what the cleanup job has done; it is not what decides whether
+   * an agent is expired. See `isAgentExpired`.
+   */
+  retellDeletedAt: string | null;
 };
+
+/** Live, or past its trial window. */
+export type AgentStatus = "active" | "expired";
 
 export type CreateAgentResult = {
   agentId: string;
@@ -68,6 +79,14 @@ export type AgentView = {
   agentName: string;
   /** Empty when we are falling back to Retell. */
   companyName: string;
+  status: AgentStatus;
+  /**
+   * ISO timestamp of when the trial ends, or ended.
+   *
+   * Null only when the registry was unreachable and this was resolved straight
+   * from Retell, which knows nothing about when we built the agent.
+   */
+  expiresAt: string | null;
 };
 
 /** One entry in the signed-in user's agent list. */
@@ -78,6 +97,9 @@ export type AgentSummary = {
   createdAt: string;
   /** The shareable "talk to it" link, absolute so it can be copied as-is. */
   url: string;
+  status: AgentStatus;
+  /** ISO timestamp of when the trial ends, or ended. */
+  expiresAt: string;
 };
 
 /**

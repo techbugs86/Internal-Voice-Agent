@@ -22,6 +22,7 @@ export default async function Dashboard() {
   // dashboard, which would read as "you have no agents" and alarm the user.
   const unavailable = result === null;
   const agents = result?.agents ?? [];
+  const expiredCount = agents.filter((a) => a.status === "expired").length;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-12">
@@ -33,7 +34,9 @@ export default async function Dashboard() {
               ? "We could not reach the service just now."
               : agents.length === 0
                 ? "You have not built an agent yet."
-                : `${agents.length} ${agents.length === 1 ? "agent" : "agents"} built.`}
+                : `${agents.length} ${agents.length === 1 ? "agent" : "agents"} built${
+                    expiredCount > 0 ? `, ${expiredCount} past their trial` : ""
+                  }.`}
           </p>
         </div>
         <SignOutButton />
